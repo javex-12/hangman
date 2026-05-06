@@ -8,7 +8,7 @@ import {
   AlertCircle, Loader2, RefreshCw, Bot, Send, 
   MessageSquare, Trophy, Hash, Users, Zap, Brain,
   ChevronRight, LayoutDashboard, Settings2, Sparkles,
-  MessageCircle, Heart, Shield
+  MessageCircle, Heart, Shield, Copy, Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -54,8 +54,14 @@ export default function HangmanGame() {
   const [roomId, setRoomId] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    // Auto-fill room ID from URL if present
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get('room');
+    if (r) setRoomId(r.toUpperCase());
+
     return () => {
       if (socket) socket.disconnect();
     };
@@ -80,6 +86,13 @@ export default function HangmanGame() {
     });
   };
 
+  const copyLink = () => {
+    const url = `${window.location.origin}/?room=${roomId}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (!inApp) {
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-6 font-sans antialiased selection:bg-indigo-100">
@@ -96,21 +109,21 @@ export default function HangmanGame() {
             </div>
             <div className="space-y-1">
               <h1 className="text-4xl font-black tracking-tight text-gray-900 italic">Hangman Fun</h1>
-              <p className="text-gray-500 font-medium">Join friends and challenge the AI</p>
+              <p className="text-gray-500 font-medium text-lg">Play with friends anywhere!</p>
             </div>
           </div>
 
           <form onSubmit={handleJoin} className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 space-y-6">
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-gray-400 ml-1">Your Name</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-gray-400 ml-1">Your Nickname</label>
               <input
                 autoFocus
                 type="text"
                 maxLength={12}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl px-5 py-4 outline-none transition-all text-gray-900 font-bold placeholder:text-gray-300"
-                placeholder="What's your name?"
+                className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl px-5 py-4 outline-none transition-all text-gray-900 font-bold text-lg placeholder:text-gray-300"
+                placeholder="Enter your name..."
                 required
               />
             </div>
@@ -121,17 +134,17 @@ export default function HangmanGame() {
                 maxLength={6}
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-                className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl px-5 py-4 outline-none transition-all uppercase text-gray-900 text-2xl tracking-[0.2em] font-black placeholder:text-gray-300"
-                placeholder="Ex: HELLO"
+                className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl px-5 py-4 outline-none transition-all uppercase text-gray-900 text-3xl tracking-[0.2em] font-black placeholder:text-gray-300"
+                placeholder="HELLO"
                 required
               />
             </div>
             <button
               type="submit"
-              className="group w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-indigo-200 flex items-center justify-center gap-3 text-lg"
+              className="group w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-indigo-200 flex items-center justify-center gap-3 text-xl"
             >
               Start Playing
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
           
@@ -140,7 +153,7 @@ export default function HangmanGame() {
                <Shield className="w-4 h-4" /> Secure
              </div>
              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
-               <Heart className="w-4 h-4" /> Friendly
+               <Heart className="w-4 h-4" /> 100% Free
              </div>
           </div>
         </motion.div>
@@ -152,8 +165,8 @@ export default function HangmanGame() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-          <span className="text-gray-400 text-xs font-bold uppercase tracking-[0.2em]">Finding Arena...</span>
+          <div className="w-14 h-14 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+          <span className="text-gray-500 text-sm font-black uppercase tracking-[0.2em]">Connecting Crew...</span>
         </div>
       </div>
     );
@@ -163,10 +176,10 @@ export default function HangmanGame() {
   const currentGuesser = room.players[room.guesserIdx];
   const isMyTurn = currentGuesser?.id === socket?.id;
   const isSetter = room.setterId === socket?.id;
+  const isMeHost = room.players[0]?.id === socket?.id;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-indigo-100 flex flex-col h-screen overflow-hidden">
-      {/* Friendly Header */}
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-30">
         <div className="flex items-center gap-4">
            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100">
@@ -174,11 +187,18 @@ export default function HangmanGame() {
            </div>
            <div>
              <h2 className="font-black text-lg leading-tight uppercase italic tracking-tight">Room {room.id}</h2>
-             <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{room.difficulty} Level</span>
+             <span className="text-[10px] text-indigo-600 uppercase font-black tracking-widest">{room.difficulty} AI</span>
            </div>
         </div>
 
         <div className="flex items-center gap-2">
+           <button 
+             onClick={copyLink}
+             className="hidden sm:flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-4 py-2 rounded-xl text-xs font-bold text-gray-500 transition-all border border-gray-100"
+           >
+             {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+             {copied ? 'Link Copied!' : 'Invite Friends'}
+           </button>
            <button 
              onClick={() => setChatOpen(!chatOpen)}
              className={cn(
@@ -201,12 +221,10 @@ export default function HangmanGame() {
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Sidebar - Desktop Only */}
         <aside className="hidden md:flex w-72 bg-white border-r border-gray-100 flex-col p-6 gap-8 shrink-0 overflow-y-auto">
           <PlayerList room={room} socketId={socket?.id} currentGuesserId={currentGuesser?.id} />
         </aside>
 
-        {/* Mobile Menu Overlay */}
         <AnimatePresence>
           {mobileMenu && (
             <motion.aside
@@ -216,19 +234,22 @@ export default function HangmanGame() {
               className="absolute inset-0 z-40 bg-white md:hidden flex flex-col p-8 gap-8"
             >
               <div className="flex justify-between items-center">
-                 <h3 className="font-black text-xl italic uppercase tracking-tight">Players</h3>
+                 <h3 className="font-black text-xl italic uppercase tracking-tight">The Crew</h3>
                  <button onClick={() => setMobileMenu(false)} className="p-2 bg-gray-100 rounded-full"><X className="w-5 h-5" /></button>
               </div>
+              <button onClick={copyLink} className="flex items-center justify-center gap-2 bg-indigo-50 text-indigo-600 p-4 rounded-2xl font-bold">
+                 {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                 {copied ? 'Link Copied!' : 'Invite Friends'}
+              </button>
               <PlayerList room={room} socketId={socket?.id} currentGuesserId={currentGuesser?.id} />
             </motion.aside>
           )}
         </AnimatePresence>
 
-        {/* Main Play Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-10 flex flex-col items-center">
+        <main className="flex-1 overflow-y-auto p-4 md:p-10 flex flex-col items-center no-scrollbar">
            <div className="w-full max-w-4xl flex-1 flex flex-col">
               <AnimatePresence mode="wait">
-                {room.status === 'lobby' && <LobbyScreen key="lobby" room={room} isMeHost={room.players[0]?.id === socket?.id} />}
+                {room.status === 'lobby' && <LobbyScreen key="lobby" room={room} isMeHost={isMeHost} />}
                 {room.status === 'setting' && <SetterScreen key="setting" room={room} isSetter={isSetter} setterName={room.players.find(p => p.id === room.setterId)?.name || 'Friend'} />}
                 {room.status === 'playing' && <GameScreen key="playing" room={room} isMyTurn={isMyTurn} currentGuesserName={currentGuesser?.name} />}
                 {room.status === 'score' && <ScoreScreen key="score" room={room} />}
@@ -236,7 +257,6 @@ export default function HangmanGame() {
            </div>
         </main>
 
-        {/* Chat Drawer */}
         <AnimatePresence>
           {chatOpen && (
             <motion.aside
@@ -258,26 +278,26 @@ function PlayerList({ room, socketId, currentGuesserId }: { room: Room, socketId
   return (
     <div className="space-y-6">
        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">The Crew</label>
+          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Live Leaderboard</label>
           <div className="space-y-2">
             {room.players.map(p => (
               <div key={p.id} className={cn(
-                "flex items-center justify-between p-3 rounded-2xl transition-all border",
-                p.id === socketId ? "bg-indigo-50 border-indigo-100" : "bg-gray-50 border-transparent"
+                "flex items-center justify-between p-4 rounded-2xl transition-all border-2",
+                p.id === socketId ? "bg-indigo-50 border-indigo-100 shadow-sm shadow-indigo-100/50" : "bg-gray-50 border-transparent"
               )}>
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    "w-10 h-10 rounded-xl flex items-center justify-center shadow-sm",
                     p.isBot ? "bg-orange-100" : "bg-white"
                   )}>
-                    {p.isBot ? <Brain className="w-4 h-4 text-orange-600" /> : <User className="w-4 h-4 text-gray-400" />}
+                    {p.isBot ? <Brain className="w-5 h-5 text-orange-600" /> : <User className="w-5 h-5 text-gray-400" />}
                   </div>
                   <div>
-                    <div className="text-xs font-black flex items-center gap-1.5 truncate max-w-[100px]">
+                    <div className="text-sm font-black flex items-center gap-1.5 truncate max-w-[110px]">
                       {p.name}
                       {currentGuesserId === p.id && <Zap className="w-3 h-3 text-yellow-500 fill-current" />}
                     </div>
-                    <div className="text-[10px] text-gray-400 font-bold">{p.score} pts</div>
+                    <div className="text-xs text-gray-400 font-bold">{p.score} Points</div>
                   </div>
                 </div>
               </div>
@@ -290,50 +310,50 @@ function PlayerList({ room, socketId, currentGuesserId }: { room: Room, socketId
 
 function LobbyScreen({ room, isMeHost }: { room: Room, isMeHost: boolean }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-10 text-center py-10">
-      <div className="space-y-2">
-         <h2 className="text-5xl font-black italic tracking-tighter uppercase text-gray-900">Waiting Room</h2>
-         <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Gather your crew for the challenge</p>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-10 text-center py-6">
+      <div className="space-y-3">
+         <h2 className="text-5xl md:text-6xl font-black italic tracking-tighter uppercase text-gray-900 leading-tight">Game Lobby</h2>
+         <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-sm">Challenge your friends or the smart AI</p>
       </div>
 
       <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-6">
-         <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-2">
-            <Users className="w-8 h-8 text-indigo-500 mx-auto" />
-            <div className="text-2xl font-black">{room.players.length} / 8</div>
-            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Players</div>
+         <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-3">
+            <Users className="w-10 h-10 text-indigo-500 mx-auto" />
+            <div className="text-3xl font-black">{room.players.length} Players</div>
+            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest italic">Crew Status</div>
          </div>
-         <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-2">
-            <Settings2 className="w-8 h-8 text-emerald-500 mx-auto" />
+         <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-4">
+            <Settings2 className="w-10 h-10 text-emerald-500 mx-auto" />
             <div className="flex items-center justify-center gap-2">
                {['Easy', 'Medium', 'Hard'].map(lvl => (
                  <button 
                    key={lvl}
                    onClick={() => isMeHost && socket.emit('set_difficulty', lvl)}
                    className={cn(
-                     "px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-tight transition-all",
-                     room.difficulty === lvl ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                     "px-3 py-2 rounded-lg text-xs font-black uppercase tracking-tight transition-all",
+                     room.difficulty === lvl ? "bg-gray-900 text-white shadow-lg" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
                    )}
                  >
                    {lvl}
                  </button>
                ))}
             </div>
-            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Difficulty</div>
+            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest italic">Difficulty Level</div>
          </div>
-         <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-2 cursor-pointer hover:bg-gray-50 transition-all" onClick={() => socket.emit('add_bot')}>
-            <Bot className="w-8 h-8 text-orange-500 mx-auto" />
-            <div className="text-2xl font-black">Add AI</div>
-            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Need a Friend?</div>
-         </div>
+         <button onClick={() => socket.emit('add_bot')} className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-3 hover:bg-gray-50 transition-all group">
+            <Bot className="w-10 h-10 text-orange-500 mx-auto group-hover:scale-110 transition-transform" />
+            <div className="text-3xl font-black">Add AI</div>
+            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest italic">Train with Bot</div>
+         </button>
       </div>
 
       <button
         onClick={() => socket.emit('start_game')}
         disabled={room.players.length < 2}
-        className="w-full max-w-sm bg-gray-900 hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 text-white font-black py-6 rounded-3xl transition-all shadow-2xl flex items-center justify-center gap-4 text-xl uppercase italic italic tracking-tight"
+        className="w-full max-w-sm bg-gray-900 hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 text-white font-black py-7 rounded-[2rem] transition-all shadow-2xl flex items-center justify-center gap-4 text-2xl uppercase italic tracking-tight"
       >
-        <Play className="w-6 h-6 fill-current" />
-        {room.players.length < 2 ? 'Need 2+ Players' : 'Launch Game'}
+        <Play className="w-8 h-8 fill-current" />
+        {room.players.length < 2 ? 'Need 2+ Players' : 'Start Match'}
       </button>
     </motion.div>
   );
@@ -349,49 +369,59 @@ function SetterScreen({ room, isSetter, setterName }: { room: Room, isSetter: bo
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center flex-1 py-10">
       {!isSetter ? (
-        <div className="text-center space-y-6">
-           <div className="w-24 h-24 bg-white rounded-[2rem] border-4 border-indigo-100 border-t-indigo-600 animate-spin mx-auto flex items-center justify-center">
-              <Brain className="w-10 h-10 text-indigo-600 animate-pulse" />
+        <div className="text-center space-y-8">
+           <div className="relative w-32 h-32 mx-auto">
+             <div className="absolute inset-0 border-[6px] border-indigo-50 rounded-full" />
+             <div className="absolute inset-0 border-[6px] border-t-indigo-600 rounded-full animate-spin" />
+             <div className="absolute inset-0 flex items-center justify-center">
+                <Brain className="w-12 h-12 text-indigo-600 animate-pulse" />
+             </div>
            </div>
-           <div className="space-y-2">
-             <h2 className="text-3xl font-black italic uppercase tracking-tight">{setterName} is Thinking...</h2>
-             <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Waiting for the secret word</p>
+           <div className="space-y-3">
+             <h2 className="text-4xl font-black italic uppercase tracking-tight text-gray-900">{setterName} is picking...</h2>
+             <p className="text-gray-400 font-bold uppercase tracking-[0.2em] text-sm">Thinking of a clever word</p>
            </div>
         </div>
       ) : (
-        <div className="w-full max-w-md bg-white p-10 rounded-[2.5rem] shadow-2xl border border-gray-100 space-y-8 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-2 bg-indigo-600" />
-          <div className="text-center">
-            <h2 className="text-3xl font-black italic uppercase tracking-tight">Pick a Word</h2>
-            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Don't make it too hard!</p>
+        <div className="w-full max-w-md bg-white p-12 rounded-[3rem] shadow-2xl border border-gray-100 space-y-10 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-3 bg-indigo-600" />
+          <div className="text-center space-y-2">
+            <h2 className="text-4xl font-black italic uppercase tracking-tight">Your Turn</h2>
+            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs italic">Choose the secret word</p>
           </div>
 
-          <div className="space-y-4">
-            <div className="relative">
-              <input
-                type={show ? "text" : "password"}
-                value={word}
-                onChange={(e) => setWord(e.target.value.toUpperCase())}
-                placeholder="Type your word"
-                className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl px-6 py-5 pr-14 outline-none font-black text-xl tracking-[0.2em] uppercase transition-all"
-              />
-              <button onClick={() => setShow(!show)} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-indigo-600">
-                {show ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
+          <div className="space-y-6">
+            <div className="space-y-2">
+               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 italic">Secret Word</label>
+               <div className="relative">
+                 <input
+                   type={show ? "text" : "password"}
+                   value={word}
+                   onChange={(e) => setWord(e.target.value.toUpperCase())}
+                   placeholder="Type word..."
+                   className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl px-6 py-5 pr-14 outline-none font-black text-2xl tracking-[0.3em] uppercase transition-all"
+                 />
+                 <button onClick={() => setShow(!show)} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-indigo-600">
+                   {show ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+                 </button>
+               </div>
             </div>
-            <input
-              type="text"
-              value={hint}
-              onChange={(e) => setHint(e.target.value)}
-              placeholder="Give them a hint (optional)"
-              className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl px-6 py-4 outline-none font-bold text-gray-600 transition-all"
-            />
+            <div className="space-y-2">
+               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 italic">Helpful Hint</label>
+               <input
+                 type="text"
+                 value={hint}
+                 onChange={(e) => setHint(e.target.value)}
+                 placeholder="Enter a clue..."
+                 className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl px-6 py-5 outline-none font-bold text-gray-600 text-lg transition-all"
+               />
+            </div>
             <button
               onClick={() => isValid && socket.emit('set_word', { word, hint })}
               disabled={!isValid}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-100 disabled:text-gray-300 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-indigo-100 uppercase italic tracking-tight text-lg"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-100 disabled:text-gray-300 text-white font-black py-6 rounded-[2rem] transition-all shadow-xl shadow-indigo-100 uppercase italic tracking-tight text-xl"
             >
-              Lock It In
+              Lock Payload
             </button>
           </div>
         </div>
@@ -402,77 +432,78 @@ function SetterScreen({ room, isSetter, setterName }: { room: Room, isSetter: bo
 
 function GameScreen({ room, isMyTurn, currentGuesserName }: { room: Room, isMyTurn: boolean, currentGuesserName?: string }) {
   const hangmanParts = [
-    <motion.circle key="head" initial={{ scale: 0 }} animate={{ scale: 1 }} cx="200" cy="70" r="22" stroke="currentColor" strokeWidth="8" fill="none" />,
-    <motion.line key="body" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="92" x2="200" y2="160" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
-    <motion.line key="larm" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="115" x2="160" y2="145" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
-    <motion.line key="rarm" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="115" x2="240" y2="145" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
-    <motion.line key="lleg" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="160" x2="170" y2="210" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
-    <motion.line key="rleg" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="160" x2="230" y2="210" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
+    <motion.circle key="head" initial={{ scale: 0 }} animate={{ scale: 1 }} cx="200" cy="70" r="24" stroke="currentColor" strokeWidth="8" fill="none" />,
+    <motion.line key="body" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="94" x2="200" y2="165" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
+    <motion.line key="larm" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="120" x2="155" y2="150" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
+    <motion.line key="rarm" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="120" x2="245" y2="150" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
+    <motion.line key="lleg" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="165" x2="165" y2="220" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
+    <motion.line key="rleg" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} x1="200" y1="165" x2="235" y2="220" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />,
   ];
 
   return (
-    <div className="flex flex-col gap-10 w-full py-6">
-       {/* Game Info Cards */}
-       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-3xl border border-gray-100 flex items-center gap-4">
-             <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5 text-amber-500" />
+    <div className="flex flex-col gap-8 w-full py-4">
+       {/* High Visibility Info Area */}
+       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-lg shadow-indigo-200 flex items-start gap-4 col-span-1 sm:col-span-2 overflow-hidden">
+             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                <Sparkles className="w-6 h-6 text-white fill-current" />
              </div>
-             <div className="truncate">
-                <div className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Hint</div>
-                <div className="font-bold text-gray-900 truncate">{room.hint || "Thinking..."}</div>
-             </div>
-          </div>
-          <div className="bg-white p-4 rounded-3xl border border-gray-100 flex items-center gap-4">
-             <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
-                <Heart className="w-5 h-5 text-rose-500" />
-             </div>
-             <div>
-                <div className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Lives</div>
-                <div className="font-bold text-gray-900">{room.maxWrong - room.wrongCount} Left</div>
+             <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-black uppercase tracking-widest text-indigo-200 italic mb-1">Clue / Hint</div>
+                <div className="font-black text-xl md:text-2xl leading-tight break-words">
+                  {room.hint || "Thinking..."}
+                </div>
              </div>
           </div>
-          <div className="bg-white p-4 rounded-3xl border border-gray-100 flex items-center gap-4 col-span-2 sm:col-span-1">
-             <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-                <Zap className="w-5 h-5 text-indigo-500" />
-             </div>
+          <div className="bg-white p-6 rounded-[2rem] border-2 border-gray-100 flex items-center justify-center text-center">
              <div>
-                <div className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Turn</div>
-                <div className="font-bold text-gray-900 truncate">{isMyTurn ? "Your Turn!" : currentGuesserName}</div>
+                <div className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic mb-1">Lives Left</div>
+                <div className="flex items-center gap-3">
+                   <Heart className={cn("w-6 h-6", (room.maxWrong - room.wrongCount) <= 2 ? "text-rose-500 animate-pulse" : "text-gray-200 fill-current")} />
+                   <div className="text-4xl font-black italic tracking-tighter text-gray-900">{room.maxWrong - room.wrongCount}</div>
+                </div>
              </div>
           </div>
        </div>
 
-       {/* Visual Area */}
        <div className="flex flex-col lg:flex-row gap-10 items-center lg:items-start">
-          <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex-shrink-0 w-full max-w-[320px]">
+          {/* Visual Canvas */}
+          <div className="bg-white p-12 rounded-[3.5rem] border-2 border-gray-100 shadow-xl shadow-gray-100/30 flex-shrink-0 w-full max-w-[340px] flex items-center justify-center">
              <svg viewBox="0 0 300 250" className="w-full h-auto text-gray-900">
-                <line x1="60" y1="230" x2="240" y2="230" stroke="currentColor" strokeWidth="12" strokeLinecap="round" opacity="0.1"/>
-                <line x1="100" y1="230" x2="100" y2="30" stroke="currentColor" strokeWidth="12" strokeLinecap="round" opacity="0.1"/>
-                <line x1="100" y1="30" x2="200" y2="30" stroke="currentColor" strokeWidth="12" strokeLinecap="round" opacity="0.1"/>
-                <line x1="200" y1="30" x2="200" y2="55" stroke="currentColor" strokeWidth="12" strokeLinecap="round" opacity="0.1"/>
+                <line x1="60" y1="235" x2="240" y2="235" stroke="currentColor" strokeWidth="14" strokeLinecap="round" opacity="0.1"/>
+                <line x1="100" y1="235" x2="100" y2="25" stroke="currentColor" strokeWidth="14" strokeLinecap="round" opacity="0.1"/>
+                <line x1="100" y1="25" x2="200" y2="25" stroke="currentColor" strokeWidth="14" strokeLinecap="round" opacity="0.1"/>
+                <line x1="200" y1="25" x2="200" y2="50" stroke="currentColor" strokeWidth="14" strokeLinecap="round" opacity="0.1"/>
                 {hangmanParts.slice(0, room.wrongCount)}
              </svg>
           </div>
 
-          <div className="flex-1 space-y-12 w-full text-center lg:text-left">
+          <div className="flex-1 space-y-12 w-full">
+             <div className={cn(
+               "w-fit mx-auto lg:mx-0 px-6 py-2 rounded-2xl text-xs font-black uppercase tracking-[0.2em] italic flex items-center gap-3 transition-all",
+               isMyTurn ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100 animate-bounce" : "bg-gray-100 text-gray-400"
+             )}>
+                {isMyTurn ? <Zap className="w-4 h-4 fill-current" /> : <Loader2 className="w-4 h-4 animate-spin" />}
+                {isMyTurn ? "Your turn now!" : `Waiting for ${currentGuesserName}...`}
+             </div>
+
              <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
                 {room.word.split('').map((l, i) => {
                   const revealed = room.guessedLetters.includes(l);
                   return (
                     <div key={i} className="flex flex-col items-center gap-2">
                       <span className={cn(
-                        "text-5xl font-black uppercase italic tracking-tighter transition-all duration-500",
+                        "text-5xl md:text-6xl font-black uppercase italic tracking-tighter transition-all duration-500 h-16 flex items-center",
                         revealed ? "text-gray-900" : "text-transparent"
-                      )}>{revealed ? l : 'X'}</span>
-                      <div className={cn("h-2 w-10 md:w-12 rounded-full transition-all", revealed ? "bg-indigo-600 shadow-lg shadow-indigo-100" : "bg-gray-100")} />
+                      )}>{revealed ? l : '?'}</span>
+                      <div className={cn("h-2.5 w-12 md:w-14 rounded-full transition-all duration-700", revealed ? "bg-indigo-600 shadow-xl shadow-indigo-100" : "bg-gray-200")} />
                     </div>
                   );
                 })}
              </div>
 
-             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
-                <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+             <div className="bg-white p-8 md:p-10 rounded-[3rem] border-2 border-gray-100 shadow-sm space-y-8">
+                <div className="flex flex-wrap gap-2.5 justify-center lg:justify-start">
                    {ALPHABET.map(l => {
                      const used = room.guessedLetters.includes(l);
                      const isCorrect = used && room.word.includes(l);
@@ -482,10 +513,10 @@ function GameScreen({ room, isMyTurn, currentGuesserName }: { room: Room, isMyTu
                          disabled={!isMyTurn || used}
                          onClick={() => socket.emit('guess_letter', l)}
                          className={cn(
-                           "w-10 h-12 md:w-12 md:h-14 rounded-2xl font-black text-lg transition-all border-2",
+                           "w-11 h-13 md:w-14 md:h-16 rounded-[1.25rem] font-black text-xl transition-all border-2",
                            used 
-                             ? isCorrect ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-gray-50 border-transparent text-gray-200"
-                             : isMyTurn ? "bg-white border-gray-100 hover:border-indigo-600 hover:-translate-y-1 text-gray-900" : "bg-white border-gray-50 text-gray-300 opacity-50"
+                             ? isCorrect ? "bg-emerald-50 border-emerald-200 text-emerald-600 scale-90" : "bg-gray-50 border-transparent text-gray-200 scale-75"
+                             : isMyTurn ? "bg-white border-gray-100 hover:border-indigo-600 hover:-translate-y-1.5 hover:shadow-lg text-gray-900 active:scale-90" : "bg-white border-gray-50 text-gray-300 opacity-50 cursor-not-allowed"
                          )}
                        >
                          {l}
@@ -494,8 +525,8 @@ function GameScreen({ room, isMyTurn, currentGuesserName }: { room: Room, isMyTu
                    })}
                 </div>
                 {isMyTurn && (
-                  <button onClick={() => socket.emit('pass_turn')} className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-all">
-                    Skip your turn &rarr;
+                  <button onClick={() => socket.emit('pass_turn')} className="w-full py-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-indigo-600 transition-all border-t border-gray-50 italic">
+                    I want to skip my turn &rarr;
                   </button>
                 )}
              </div>
@@ -510,36 +541,41 @@ function ScoreScreen({ room }: { room: Room }) {
   const sorted = [...room.players].sort((a, b) => b.score - a.score);
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-8 py-10 w-full max-w-md mx-auto">
-      <div className="text-center space-y-4">
-         <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto">
-            {isWin ? <Trophy className="w-12 h-12 text-yellow-500 fill-current" /> : <RefreshCw className="w-12 h-12 text-indigo-500 animate-spin" />}
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-10 py-10 w-full max-w-lg mx-auto">
+      <div className="text-center space-y-6">
+         <div className="w-28 h-28 bg-white rounded-[3rem] shadow-2xl flex items-center justify-center mx-auto border-2 border-gray-50">
+            {isWin ? <Trophy className="w-14 h-14 text-yellow-500 fill-current drop-shadow-lg" /> : <RefreshCw className="w-14 h-14 text-indigo-500 animate-spin" />}
          </div>
-         <h2 className="text-4xl font-black italic uppercase tracking-tighter">{isWin ? "Amazing Job!" : "Better Luck Next Time"}</h2>
-         {!isWin && <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">The word was <span className="text-gray-900 font-black">{room.word}</span></p>}
+         <div className="space-y-2">
+            <h2 className="text-5xl font-black italic uppercase tracking-tighter text-gray-900">{isWin ? "Victory!" : "Hard Luck!"}</h2>
+            {!isWin && <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">The secret word was <span className="text-indigo-600 font-black italic">{room.word}</span></p>}
+         </div>
       </div>
 
-      <div className="w-full bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-         <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Scoreboard</h3>
-         <div className="space-y-2">
+      <div className="w-full bg-white p-10 rounded-[3rem] border-2 border-gray-100 shadow-sm space-y-6">
+         <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 italic">Arena Standings</h3>
+         <div className="space-y-3">
             {sorted.map((p, i) => (
               <div key={p.id} className={cn(
-                "flex items-center justify-between p-4 rounded-2xl border",
-                i === 0 && p.score > 0 ? "bg-indigo-50 border-indigo-100" : "bg-gray-50 border-transparent"
+                "flex items-center justify-between p-5 rounded-2xl border-2 transition-all",
+                i === 0 && p.score > 0 ? "bg-indigo-50 border-indigo-200 scale-105 shadow-md" : "bg-gray-50 border-transparent"
               )}>
-                 <div className="flex items-center gap-3">
-                    <span className="font-black italic text-gray-300 w-4">{i + 1}</span>
-                    <span className="font-bold text-gray-900">{p.name}</span>
+                 <div className="flex items-center gap-4">
+                    <span className="font-black italic text-gray-400 text-lg w-6">{i + 1}</span>
+                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xs font-black shadow-sm">{p.name[0].toUpperCase()}</div>
+                    <span className="font-black text-gray-900">{p.name}</span>
                  </div>
-                 <span className="font-black text-indigo-600">{p.score} <span className="text-[8px] text-gray-400">PTS</span></span>
+                 <span className="font-black text-indigo-600 text-lg">{p.score} <span className="text-[10px] text-gray-400 font-bold uppercase">Pts</span></span>
               </div>
             ))}
          </div>
       </div>
 
-      <div className="flex items-center gap-3 text-gray-400 text-xs font-bold uppercase tracking-widest">
-         <RefreshCw className="w-4 h-4 animate-spin" />
-         Starting next round soon...
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center gap-4 text-gray-500 text-sm font-black uppercase tracking-widest italic">
+           <RefreshCw className="w-5 h-5 animate-spin text-indigo-500" />
+           Preparing for next match...
+        </div>
       </div>
     </motion.div>
   );
@@ -564,36 +600,36 @@ function ChatWindow({ room, socket, onClose }: { room: Room, socket: Socket, onC
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-         <div className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-black italic uppercase tracking-tight">Chat</h3>
+         <div className="flex items-center gap-3">
+            <MessageCircle className="w-6 h-6 text-indigo-600" />
+            <h3 className="font-black italic uppercase tracking-tight text-lg">Crew Chat</h3>
          </div>
-         <button onClick={onClose} className="p-2 bg-gray-50 rounded-lg md:hidden"><X className="w-4 h-4" /></button>
+         <button onClick={onClose} className="p-2 bg-gray-50 rounded-lg md:hidden"><X className="w-5 h-5" /></button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-5 scroll-smooth no-scrollbar">
          {room.messages.map(m => (
-           <div key={m.id} className={cn("flex flex-col gap-1", m.senderId === socket.id ? "items-end" : "items-start")}>
-              <span className="text-[8px] font-black uppercase tracking-widest text-gray-300 px-1">{m.senderName}</span>
+           <div key={m.id} className={cn("flex flex-col gap-1.5", m.senderId === socket.id ? "items-end" : "items-start")}>
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 px-1 italic">{m.senderName}</span>
               <div className={cn(
-                "px-4 py-2.5 rounded-2xl text-xs font-bold leading-relaxed",
+                "px-5 py-3 rounded-2xl text-xs font-bold leading-relaxed shadow-sm",
                 m.senderId === socket.id ? "bg-indigo-600 text-white rounded-tr-none" : "bg-gray-100 text-gray-900 rounded-tl-none"
               )}>{m.text}</div>
            </div>
          ))}
       </div>
 
-      <form onSubmit={send} className="p-6 border-t border-gray-100 bg-gray-50/50">
+      <form onSubmit={send} className="p-6 border-t border-gray-100 bg-gray-50/30">
          <div className="relative">
             <input
               type="text"
               value={msg}
               onChange={(e) => setMsg(e.target.value)}
-              placeholder="Type your message..."
-              className="w-full bg-white border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3 pr-12 text-xs font-bold outline-none"
+              placeholder="Send a message..."
+              className="w-full bg-white border-2 border-gray-100 focus:border-indigo-100 rounded-2xl px-6 py-4 pr-14 text-sm font-bold outline-none transition-all shadow-sm"
             />
-            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-indigo-600 hover:scale-110 transition-transform">
-               <Send className="w-5 h-5 fill-current" />
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-indigo-600 hover:scale-110 transition-transform active:scale-95">
+               <Send className="w-6 h-6 fill-current" />
             </button>
          </div>
       </form>

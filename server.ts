@@ -45,6 +45,7 @@ export interface Room {
   maxWrong: number;
   messages: Message[];
   difficulty: 'Easy' | 'Medium' | 'Hard';
+  wordHistory: string[];
 }
 
 const rooms: Record<string, Room> = {};
@@ -63,40 +64,16 @@ function createRoom(roomId: string): Room {
     maxWrong: 6,
     messages: [],
     difficulty: 'Medium',
+    wordHistory: [],
   };
   rooms[roomId] = room;
   return room;
 }
 
-function getRoom(roomId: string): Room | undefined {
-  return rooms[roomId];
-}
+async function getSmartWord(difficulty: string = 'Medium', history: string[] = []) {
+  const complexity = difficulty === 'Easy' ? 'very common, everyday' : difficulty === 'Hard' ? 'slightly less common but still recognizable' : 'common and interesting';
+  const historyContext = history.length > 0 ? `Do NOT use any of these words: ${history.slice(-10).join(', ')}.` : '';
 
-function broadcastRoom(io: Server, roomId: string) {
-  const room = getRoom(roomId);
-  if (room) {
-    io.to(roomId).emit('room_state', room);
-  }
-}
-
-function nextSetter(room: Room) {
-  if (room.players.length === 0) return;
-  const currentSetterIdx = room.players.findIndex(p => p.id === room.setterId);
-  const nextIdx = (currentSetterIdx + 1) % room.players.length;
-  room.setterId = room.players[nextIdx].id;
-  room.guesserIdx = (nextIdx + 1) % room.players.length;
-}
-
-function nextGuesser(room: Room) {
-  if (room.players.length === 0) return;
-  room.guesserIdx = (room.guesserIdx + 1) % room.players.length;
-  if (room.players[room.guesserIdx].id === room.setterId && room.players.length > 1) {
-    room.guesserIdx = (room.guesserIdx + 1) % room.players.length;
-  }
-}
-
-async function getSmartWord(difficulty: string = 'Medium') {
-  const complexity = difficulty === 'Easy' ? 'simple, common' : difficulty === 'Hard' ? 'rare, complex, and challenging' : 'interesting and balanced';
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -109,11 +86,11 @@ async function getSmartWord(difficulty: string = 'Medium') {
         messages: [
           {
             role: "system",
-            content: `You are a professional hangman word generator. Provide a ${complexity} word and hint. Format strictly as WORD|HINT.`
+            content: `You are a friendly hangman word generator. Provide a ${complexity} English word that a person would definitely know. Format: WORD|HINT. Keep hints concise (max 10 words). ${historyContext}`
           },
           {
             role: "user",
-            content: `Generate one ${difficulty} difficulty word (5-10 letters) for hangman. Format: WORD|HINT.`
+            content: `Give me a ${difficulty} level word for hangman. Format: WORD|HINT.`
           }
         ],
         temperature: 0.8
@@ -128,7 +105,7 @@ async function getSmartWord(difficulty: string = 'Medium') {
     return { word, hint };
   } catch (err) {
     console.error("Groq Error:", err);
-    return { word: "FRIENDLY", hint: "Kind and pleasant" };
+    return { word: "FRIENDLY", hint: "Being kind and nice to others" };
   }
 }
 
@@ -139,11 +116,13 @@ async function handleBotTurn(io: Server, roomId: string) {
   if (room.status === 'setting') {
     const setter = room.players.find(p => p.id === room.setterId);
     if (setter?.isBot) {
-      const { word, hint } = await getSmartWord(room.difficulty);
+      const { word, hint } = await getSmartWord(room.difficulty, room.wordHistory);
       const r = getRoom(roomId);
       if (r && r.status === 'setting' && r.setterId === setter.id) {
         r.word = word;
         r.hint = hint;
+        r.wordHistory.push(word);
+        if (r.wordHistory.length > 20) r.wordHistory.shift();
         r.guessedLetters = [];
         r.wrongCount = 0;
         r.status = 'playing';
@@ -159,24 +138,18 @@ async function handleBotTurn(io: Server, roomId: string) {
         if (r && r.status === 'playing' && r.players[r.guesserIdx]?.id === guesser.id) {
           const available = ALPHABET.filter(l => !r.guessedLetters.includes(l));
           if (available.length > 0) {
-            // AI Intelligence based on difficulty
             const frequencyOrder = ['E','T','A','O','I','N','S','H','R','D','L','C','U','M','W','F','G','Y','P','B','V','K','J','X','Q','Z'];
             let letter;
 
             if (r.difficulty === 'Easy') {
-              // High chance of picking completely random letter
               letter = available[Math.floor(Math.random() * available.length)];
             } else if (r.difficulty === 'Hard') {
-              // Smartly pick from common letters first, and check vowels
               const commonAvailable = frequencyOrder.filter(l => available.includes(l));
-              // 10% chance to be "wrong" on purpose to look human, else pick best letter
-              letter = Math.random() > 0.9 ? available[Math.floor(Math.random() * available.length)] : commonAvailable[0];
+              letter = Math.random() > 0.85 ? available[Math.floor(Math.random() * available.length)] : commonAvailable[0];
             } else {
-              // Medium: Balanced between random and smart
               const commonAvailable = frequencyOrder.filter(l => available.includes(l));
-              letter = Math.random() > 0.4 ? commonAvailable[Math.floor(Math.random() * Math.min(5, commonAvailable.length))] : available[Math.floor(Math.random() * available.length)];
+              letter = Math.random() > 0.5 ? commonAvailable[Math.floor(Math.random() * Math.min(4, commonAvailable.length))] : available[Math.floor(Math.random() * available.length)];
             }
-            
             processGuess(io, roomId, guesser.id, letter);
           }
         }
@@ -184,6 +157,7 @@ async function handleBotTurn(io: Server, roomId: string) {
     }
   }
 }
+
 
 
 function processGuess(io: Server, roomId: string, playerId: string, letter: string) {
