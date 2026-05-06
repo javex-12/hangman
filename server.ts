@@ -2,7 +2,6 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { Server, Socket } from 'socket.io';
-import { GoogleGenerativeAI } from "@google/genai";
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -13,8 +12,7 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -84,14 +82,12 @@ function nextSetter(room: Room) {
   const currentSetterIdx = room.players.findIndex(p => p.id === room.setterId);
   const nextIdx = (currentSetterIdx + 1) % room.players.length;
   room.setterId = room.players[nextIdx].id;
-  // First guesser is the one after setter
   room.guesserIdx = (nextIdx + 1) % room.players.length;
 }
 
 function nextGuesser(room: Room) {
   if (room.players.length === 0) return;
   room.guesserIdx = (room.guesserIdx + 1) % room.players.length;
-  // Skip setter if multiple players
   if (room.players[room.guesserIdx].id === room.setterId && room.players.length > 1) {
     room.guesserIdx = (room.guesserIdx + 1) % room.players.length;
   }
@@ -99,15 +95,35 @@ function nextGuesser(room: Room) {
 
 async function getSmartWord() {
   try {
-    const prompt = "Generate a single interesting, fun, and guessable word for a hangman game. It should be between 5 and 10 letters. Also provide a short creative hint for it. Format: WORD|HINT. Examples: GALAXY|The vast cosmic system, AVOCADO|A creamy green fruit.";
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().trim();
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional hangman word generator. Provide an interesting word and hint. Format strictly as WORD|HINT."
+          },
+          {
+            role: "user",
+            content: "Generate a single interesting word for hangman (5-10 letters) and a creative hint. Format: WORD|HINT."
+          }
+        ],
+        temperature: 0.7
+      })
+    });
+
+    const data = await response.json();
+    const text = data.choices[0].message.content.trim();
     const [word, hint] = text.split('|');
-    return { word: word.toUpperCase(), hint: hint || "No hint provided" };
+    return { word: word.toUpperCase().replace(/[^A-Z]/g, ''), hint: hint || "A mysterious word" };
   } catch (err) {
-    console.error("Gemini Error:", err);
-    return { word: "PROGRAMMING", hint: "The art of writing code" };
+    console.error("Groq Error:", err);
+    return { word: "VELOCITY", hint: "The rate of change of position" };
   }
 }
 
@@ -138,13 +154,7 @@ async function handleBotTurn(io: Server, roomId: string) {
         if (r && r.status === 'playing' && r.players[r.guesserIdx]?.id === guesser.id) {
           const available = ALPHABET.filter(l => !r.guessedLetters.includes(l));
           if (available.length > 0) {
-            // Smart guessing logic
-            const currentPattern = r.word.split('').map(l => r.guessedLetters.includes(l) ? l : '_').join('');
-            
-            // Just a simple smart-ish heuristic: common letters first, but also check if we can guess based on vowels
             const common = ['E','A','R','I','O','T','N','S','L','C','U','D','P','M','H','G','B','F','Y','W','K','V','X','Z','J','Q'].filter(l => available.includes(l));
-            
-            // Maybe pick a vowel if not many revealed
             const vowels = ['E','A','I','O','U'].filter(l => available.includes(l));
             const revealedCount = r.word.split('').filter(l => r.guessedLetters.includes(l)).length;
             
@@ -159,7 +169,7 @@ async function handleBotTurn(io: Server, roomId: string) {
             processGuess(io, roomId, guesser.id, letter);
           }
         }
-      }, 1500);
+      }, 1200);
     }
   }
 }
@@ -280,7 +290,7 @@ app.prepare().then(() => {
       if (room && room.status === 'lobby') {
         room.players.push({
           id: `bot_${Date.now()}_${Math.floor(Math.random()*1000)}`,
-          name: 'AI Brain 🧠',
+          name: 'Groq AI 🤖',
           score: 0,
           isBot: true
         });
@@ -373,4 +383,3 @@ app.prepare().then(() => {
     console.log(`> Ready on http://${hostname}:${port}`);
   });
 });
-
