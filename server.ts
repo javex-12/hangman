@@ -44,6 +44,7 @@ export interface Room {
   wrongCount: number;
   maxWrong: number;
   messages: Message[];
+  difficulty: 'Easy' | 'Medium' | 'Hard';
 }
 
 const rooms: Record<string, Room> = {};
@@ -61,6 +62,7 @@ function createRoom(roomId: string): Room {
     wrongCount: 0,
     maxWrong: 6,
     messages: [],
+    difficulty: 'Medium',
   };
   rooms[roomId] = room;
   return room;
@@ -93,7 +95,8 @@ function nextGuesser(room: Room) {
   }
 }
 
-async function getSmartWord() {
+async function getSmartWord(difficulty: string = 'Medium') {
+  const complexity = difficulty === 'Easy' ? 'simple, common' : difficulty === 'Hard' ? 'rare, complex, and challenging' : 'interesting and balanced';
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -106,24 +109,26 @@ async function getSmartWord() {
         messages: [
           {
             role: "system",
-            content: "You are a professional hangman word generator. Provide an interesting word and hint. Format strictly as WORD|HINT."
+            content: `You are a professional hangman word generator. Provide a ${complexity} word and hint. Format strictly as WORD|HINT.`
           },
           {
             role: "user",
-            content: "Generate a single interesting word for hangman (5-10 letters) and a creative hint. Format: WORD|HINT."
+            content: `Generate one ${difficulty} difficulty word (5-10 letters) for hangman. Format: WORD|HINT.`
           }
         ],
-        temperature: 0.7
+        temperature: 0.8
       })
     });
 
     const data = await response.json();
     const text = data.choices[0].message.content.trim();
-    const [word, hint] = text.split('|');
-    return { word: word.toUpperCase().replace(/[^A-Z]/g, ''), hint: hint || "A mysterious word" };
+    const parts = text.split('|');
+    const word = parts[0].toUpperCase().replace(/[^A-Z]/g, '');
+    const hint = parts[1] || "A fun word to guess!";
+    return { word, hint };
   } catch (err) {
     console.error("Groq Error:", err);
-    return { word: "VELOCITY", hint: "The rate of change of position" };
+    return { word: "FRIENDLY", hint: "Kind and pleasant" };
   }
 }
 
@@ -134,7 +139,7 @@ async function handleBotTurn(io: Server, roomId: string) {
   if (room.status === 'setting') {
     const setter = room.players.find(p => p.id === room.setterId);
     if (setter?.isBot) {
-      const { word, hint } = await getSmartWord();
+      const { word, hint } = await getSmartWord(room.difficulty);
       const r = getRoom(roomId);
       if (r && r.status === 'setting' && r.setterId === setter.id) {
         r.word = word;
@@ -154,25 +159,32 @@ async function handleBotTurn(io: Server, roomId: string) {
         if (r && r.status === 'playing' && r.players[r.guesserIdx]?.id === guesser.id) {
           const available = ALPHABET.filter(l => !r.guessedLetters.includes(l));
           if (available.length > 0) {
-            const common = ['E','A','R','I','O','T','N','S','L','C','U','D','P','M','H','G','B','F','Y','W','K','V','X','Z','J','Q'].filter(l => available.includes(l));
-            const vowels = ['E','A','I','O','U'].filter(l => available.includes(l));
-            const revealedCount = r.word.split('').filter(l => r.guessedLetters.includes(l)).length;
-            
+            // AI Intelligence based on difficulty
+            const frequencyOrder = ['E','T','A','O','I','N','S','H','R','D','L','C','U','M','W','F','G','Y','P','B','V','K','J','X','Q','Z'];
             let letter;
-            if (revealedCount < 2 && vowels.length > 0 && Math.random() > 0.3) {
-              letter = vowels[Math.floor(Math.random() * vowels.length)];
+
+            if (r.difficulty === 'Easy') {
+              // High chance of picking completely random letter
+              letter = available[Math.floor(Math.random() * available.length)];
+            } else if (r.difficulty === 'Hard') {
+              // Smartly pick from common letters first, and check vowels
+              const commonAvailable = frequencyOrder.filter(l => available.includes(l));
+              // 10% chance to be "wrong" on purpose to look human, else pick best letter
+              letter = Math.random() > 0.9 ? available[Math.floor(Math.random() * available.length)] : commonAvailable[0];
             } else {
-              const randomIndex = Math.floor(Math.random() * Math.min(3, common.length));
-              letter = common[randomIndex];
+              // Medium: Balanced between random and smart
+              const commonAvailable = frequencyOrder.filter(l => available.includes(l));
+              letter = Math.random() > 0.4 ? commonAvailable[Math.floor(Math.random() * Math.min(5, commonAvailable.length))] : available[Math.floor(Math.random() * available.length)];
             }
             
             processGuess(io, roomId, guesser.id, letter);
           }
         }
-      }, 1200);
+      }, 1500);
     }
   }
 }
+
 
 function processGuess(io: Server, roomId: string, playerId: string, letter: string) {
   const room = getRoom(roomId);
@@ -294,6 +306,15 @@ app.prepare().then(() => {
           score: 0,
           isBot: true
         });
+        broadcastRoom(io, currentRoomId);
+      }
+    });
+
+    socket.on('set_difficulty', (level: 'Easy' | 'Medium' | 'Hard') => {
+      if (!currentRoomId) return;
+      const room = getRoom(currentRoomId);
+      if (room && room.status === 'lobby') {
+        room.difficulty = level;
         broadcastRoom(io, currentRoomId);
       }
     });
