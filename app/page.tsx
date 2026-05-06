@@ -86,11 +86,23 @@ export default function HangmanGame() {
     });
   };
 
-  const copyLink = () => {
+  const copyLink = async () => {
     const url = `${window.location.origin}/?room=${roomId}`;
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join my Hangman Game!',
+          text: `Come play Hangman with me! Room: ${roomId}`,
+          url: url,
+        });
+      } catch (err) {
+        console.log('Share failed', err);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   if (!inApp) {
@@ -328,17 +340,17 @@ function LobbyScreen({ room, isMeHost }: { room: Room, isMeHost: boolean }) {
                {['Easy', 'Medium', 'Hard'].map(lvl => (
                  <button 
                    key={lvl}
-                   onClick={() => isMeHost && socket.emit('set_difficulty', lvl)}
+                   onClick={() => socket.emit('set_difficulty', lvl)}
                    className={cn(
                      "px-3 py-2 rounded-lg text-xs font-black uppercase tracking-tight transition-all",
-                     room.difficulty === lvl ? "bg-gray-900 text-white shadow-lg" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                     room.difficulty === lvl ? "bg-indigo-600 text-white shadow-lg" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
                    )}
                  >
                    {lvl}
                  </button>
                ))}
             </div>
-            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest italic">Difficulty Level</div>
+            <div className="text-[10px] text-gray-400 uppercase font-black tracking-widest italic">AI Challenge Level</div>
          </div>
          <button onClick={() => socket.emit('add_bot')} className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-3 hover:bg-gray-50 transition-all group">
             <Bot className="w-10 h-10 text-orange-500 mx-auto group-hover:scale-110 transition-transform" />

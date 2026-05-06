@@ -287,9 +287,20 @@ app.prepare().then(() => {
     socket.on('set_difficulty', (level: 'Easy' | 'Medium' | 'Hard') => {
       if (!currentRoomId) return;
       const room = getRoom(currentRoomId);
-      if (room && room.status === 'lobby') {
+      if (room && (room.status === 'lobby' || room.status === 'score')) {
         room.difficulty = level;
         broadcastRoom(io, currentRoomId);
+        
+        // Push a chat notification about difficulty change
+        const msg: Message = {
+          id: `sys_${Date.now()}`,
+          senderId: 'system',
+          senderName: 'SYSTEM',
+          text: `Difficulty set to ${level} ⚙️`,
+          timestamp: Date.now()
+        };
+        room.messages.push(msg);
+        io.to(currentRoomId).emit('new_message', msg);
       }
     });
 
